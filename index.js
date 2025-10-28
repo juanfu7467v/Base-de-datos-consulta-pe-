@@ -7,52 +7,59 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 📁 Carpeta donde guardaremos los datos
+// 📁 Carpeta principal de almacenamiento
 const STORAGE_DIR = path.join(process.cwd(), "storage");
 await fs.ensureDir(STORAGE_DIR);
 
-// ✅ Función genérica para guardar consultas
-async function saveData(file, data) {
-  const filePath = path.join(STORAGE_DIR, file);
+// ✅ Función genérica: crea o actualiza archivos automáticamente
+async function saveDynamicData(tipo, data) {
+  const fileName = `${tipo}.json`;
+  const filePath = path.join(STORAGE_DIR, fileName);
   const existing = (await fs.readJson(filePath, { throws: false })) || [];
   existing.push({ ...data, fecha: new Date().toISOString() });
   await fs.writeJson(filePath, existing, { spaces: 2 });
 }
 
-// 🧠 Ejemplo 1: Guardar consultas por DNI y nombres
-app.post("/guardar_dni_nombres", async (req, res) => {
-  const { nombres, apellidos, dni, resultado } = req.body;
-  if (!nombres || !apellidos || !dni)
-    return res.status(400).json({ error: "Faltan datos" });
+// 🧠 Ruta universal para guardar cualquier tipo de dato
+app.post("/guardar/:tipo", async (req, res) => {
+  const tipo = req.params.tipo; // Ejemplo: "dni_nombres", "ruc", "telefonos", etc.
+  const data = req.body;
 
-  await saveData("dni_nombres.json", { nombres, apellidos, dni, resultado });
-  res.json({ ok: true, mensaje: "Consulta almacenada correctamente" });
+  if (!data || Object.keys(data).length === 0) {
+    return res.status(400).json({ error: "Faltan datos en el cuerpo del request" });
+  }
+
+  try {
+    await saveDynamicData(tipo, data);
+    res.json({ ok: true, mensaje: `Datos de tipo '${tipo}' guardados correctamente` });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error al guardar los datos" });
+  }
 });
 
-// 🌳 Ejemplo 2: Guardar árbol genealógico
-app.post("/guardar_arbol", async (req, res) => {
-  const { dni, arbol } = req.body;
-  if (!dni || !arbol)
-    return res.status(400).json({ error: "Faltan datos" });
-
-  await saveData("arbol.json", { dni, arbol });
-  res.json({ ok: true, mensaje: "Árbol guardado exitosamente" });
-});
-
-// 🔍 Ejemplo 3: Obtener todas las consultas almacenadas
+// 🔍 Obtener historial según tipo
 app.get("/historial/:tipo", async (req, res) => {
-  const file = `${req.params.tipo}.json`;
-  const filePath = path.join(STORAGE_DIR, file);
-  if (!(await fs.pathExists(filePath)))
+  const tipo = req.params.tipo;
+  const filePath = path.join(STORAGE_DIR, `${tipo}.json`);
+  if (!(await fs.pathExists(filePath))) {
     return res.json([]);
+  }
 
   const data = await fs.readJson(filePath);
   res.json(data);
 });
 
+// 📂 Obtener todos los tipos de archivos disponibles
+app.get("/tipos", async (req, res) => {
+  const files = await fs.readdir(STORAGE_DIR);
+  const tipos = files.filter(f => f.endsWith(".json")).map(f => f.replace(".json", ""));
+  res.json(tipos);
+});
+
 // 🧩 Ruta raíz
 app.get("/", (req, res) => {
-  res.send("✅ API de almacenamiento Consulta PE activa.");
+  res.send("✅ API dinámica de almacenamiento — Consulta PE");
 });
 
 const PORT = process.env.PORT || 8080;
