@@ -1,18 +1,27 @@
-# Imagen base oficial de Node.js
-FROM node:18
+# syntax = docker/dockerfile:1
 
-# Crear carpeta de la app
+ARG NODE_VERSION=20.18.0
+FROM node:${NODE_VERSION}-slim AS base
+
+LABEL fly_launch_runtime="Node.js"
+
 WORKDIR /app
 
-# Copiar dependencias
-COPY package*.json ./
-RUN npm install --omit=dev
+ENV NODE_ENV="production"
 
-# Copiar el resto del código
+FROM base AS build
+
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y build-essential node-gyp pkg-config python-is-python3
+
+COPY package.json ./
+RUN npm install
+
 COPY . .
 
-# Exponer el puerto de Express
-EXPOSE 8080
+FROM base
 
-# Comando de inicio
-CMD ["npm", "start"]
+COPY --from=build /app /app
+
+EXPOSE 8080
+CMD [ "npm", "run", "start" ]
