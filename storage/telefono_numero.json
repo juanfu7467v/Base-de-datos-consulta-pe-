@@ -1,0 +1,10 @@
+[
+  {
+    "id": 1761751149332,
+    "message": "found data",
+    "result": "{\"quantity\":3,\"coincidences\":[{\"telefono\":\"944950234\",\"documento\":\"42423999\",\"fuente\":\"MOVISTAR\",\"plan\":\"Prepago\",\"periodo\":\"2021-06-23 00:00:00\"},{\"telefono\":\"944950234\",\"documento\":\"44934434\",\"fuente\":\"MOVISTAR\",\"plan\":\"Preplan\",\"periodo\":\"202101\"},{\"documento\":\"71034228\",\"fuente\":\"MOVISTAR SEPTIEMBRE 2017\",\"telefono\":\"944950234\",\"plan\":\"\",\"periodo\":\"\"}]}",
+    "developed-by": "https://t.me/lederdataoficial",
+    "credits": "1604",
+    "fecha": "2025-10-29T15:19:09.332Z"
+  }
+]
