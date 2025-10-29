@@ -1,142 +1,117 @@
 import express from "express";
 import cors from "cors";
-import fs from "fs-extra";
-import path from "path";
-import qrcode from "qrcode";
-import baileys from "@whiskeysockets/baileys";
-
-const { makeWASocket, useMultiFileAuthState, DisconnectReason } = baileys;
+import fetch from "node-fetch";
 
 const app = express();
+app.use(cors());
 app.use(express.json());
-app.use(cors()); // ✅ Habilita CORS
 
-const SESSION_DIR = "./session";
-const QR_FILE = path.join(SESSION_DIR, "last_qr.png");
+// 🔑 Variables de entorno (debes configurarlas en Fly.io)
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN; // Token personal con permisos de escritura
+const GITHUB_REPO = process.env.GITHUB_REPO;   // Ejemplo: "usuario/repositorio"
 
-fs.ensureDirSync(SESSION_DIR);
+// 🧠 Función para guardar datos directamente en GitHub
+async function saveToGitHub(tipo, data) {
+  const filePath = `storage/${tipo}.json`;
+  const apiUrl = `https://api.github.com/repos/${GITHUB_REPO}/contents/${filePath}`;
 
-let latestQR = null;
-let connected = false;
-let sock = null;
-let connectionInfo = { status: "starting" };
+  // 📦 Obtener el archivo actual en GitHub
+  const res = await fetch(apiUrl, {
+    headers: {
+      Authorization: `token ${GITHUB_TOKEN}`,
+      Accept: "application/vnd.github.v3+json",
+    },
+  });
 
-async function startBot() {
-  try {
-    const { state, saveCreds } = await useMultiFileAuthState(SESSION_DIR);
+  let existing = [];
+  let sha = null;
 
-    sock = makeWASocket({
-      auth: state,
-      printQRInTerminal: false,
-      browser: ["Fly.io WhatsApp Bot", "Chrome", "1.0.0"],
-    });
-
-    sock.ev.on("connection.update", async (update) => {
-      const { connection, qr, lastDisconnect } = update;
-
-      if (qr) {
-        latestQR = qr;
-        await qrcode.toFile(QR_FILE, qr);
-        connectionInfo = { status: "qr_generated", message: "Escanea el código QR para vincular WhatsApp" };
-        console.log("📲 QR generado. Escanéalo desde /qr");
-      }
-
-      if (connection === "open") {
-        connected = true;
-        connectionInfo = { status: "connected", message: "✅ Conectado correctamente a WhatsApp" };
-        console.log("✅ Bot vinculado correctamente");
-        if (fs.existsSync(QR_FILE)) fs.removeSync(QR_FILE);
-      }
-
-      if (connection === "close") {
-        connected = false;
-        const reason = lastDisconnect?.error?.output?.statusCode;
-        console.log("❌ Conexión cerrada. Reintentando...");
-        if (reason !== DisconnectReason.loggedOut) setTimeout(startBot, 5000);
-      }
-    });
-
-    sock.ev.on("messages.upsert", async (m) => {
-      const msg = m.messages[0];
-      if (!msg.message || msg.key.fromMe) return;
-      const from = msg.key.remoteJid;
-      const text = msg.message.conversation || msg.message.extendedTextMessage?.text || "";
-
-      console.log(`📩 Mensaje recibido de ${from}: ${text}`);
-
-      if (text.toLowerCase() === "hola") {
-        await sock.sendMessage(from, { text: "👋 ¡Hola! Soy tu bot conectado a Fly.io 🚀" });
-      } else {
-        await sock.sendMessage(from, { text: "🤖 Escribe 'hola' para comenzar." });
-      }
-    });
-
-    sock.ev.on("creds.update", saveCreds);
-  } catch (err) {
-    console.error("❌ Error al iniciar el bot:", err);
-    connectionInfo = { status: "error", message: err.message };
+  if (res.ok) {
+    const json = await res.json();
+    sha = json.sha;
+    const content = Buffer.from(json.content, "base64").toString();
+    existing = JSON.parse(content);
   }
+
+  // 🔖 Agregar nuevo registro con ID y fecha
+  existing.push({
+    id: data.id || Date.now(),
+    ...data,
+    fecha: new Date().toISOString(),
+  });
+
+  // 🧬 Codificar y subir a GitHub
+  const newContent = Buffer.from(JSON.stringify(existing, null, 2)).toString("base64");
+  const message = `Guardar datos tipo ${tipo}`;
+
+  const saveRes = await fetch(apiUrl, {
+    method: "PUT",
+    headers: {
+      Authorization: `token ${GITHUB_TOKEN}`,
+      Accept: "application/vnd.github.v3+json",
+    },
+    body: JSON.stringify({
+      message,
+      content: newContent,
+      sha, // se incluye solo si ya existía el archivo
+    }),
+  });
+
+  if (!saveRes.ok) throw new Error("Error al guardar en GitHub");
 }
 
-startBot();
+// 📌 Ruta universal para GUARDAR usando GET
+app.get("/guardar/:tipo", async (req, res) => {
+  const tipo = req.params.tipo;
+  const data = req.query; // los datos vienen en la URL como ?clave=valor
 
-// ✅ Página principal
+  if (!data || Object.keys(data).length === 0) {
+    return res.status(400).json({ error: "Faltan parámetros en la URL" });
+  }
+
+  try {
+    await saveToGitHub(tipo, data);
+    res.json({ ok: true, mensaje: `Datos de tipo '${tipo}' guardados correctamente en GitHub`, data });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error al guardar los datos en GitHub" });
+  }
+});
+
+// 📄 Ruta para obtener historial (GET)
+app.get("/historial/:tipo", async (req, res) => {
+  const tipo = req.params.tipo;
+  const apiUrl = `https://api.github.com/repos/${GITHUB_REPO}/contents/storage/${tipo}.json`;
+
+  try {
+    const response = await fetch(apiUrl, {
+      headers: {
+        Authorization: `token ${GITHUB_TOKEN}`,
+        Accept: "application/vnd.github.v3+json",
+      },
+    });
+
+    if (!response.ok) return res.json([]);
+
+    const json = await response.json();
+    const content = Buffer.from(json.content, "base64").toString();
+    res.json(JSON.parse(content));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error al obtener los datos desde GitHub" });
+  }
+});
+
+// 🧩 Ruta raíz
 app.get("/", (req, res) => {
   res.send(`
-    <h2>🤖 WhatsApp Bot - Fly.io</h2>
-    <p>Estado actual: ${connectionInfo.status}</p>
-    <p>${connectionInfo.message || ""}</p>
-    <a href="/qr" target="_blank">📱 Ver QR</a>
+    ✅ API dinámica de almacenamiento — Consulta PE (GET compatible)
+    <br><br>Ejemplo para guardar:
+    <br>https://base-datos-consulta-pe.fly.dev/guardar/ruc?ruc=10456789012&razon_social=Tienda+Prueba+SAC&direccion=Av+Principal+999&estado=Activo&id=1
+    <br><br>Ejemplo para ver historial:
+    <br>https://base-datos-consulta-pe.fly.dev/historial/ruc
   `);
 });
 
-// ✅ Endpoint del QR
-app.get("/qr", async (req, res) => {
-  try {
-    if (connected) return res.json({ status: "connected" });
-    if (fs.existsSync(QR_FILE)) {
-      const image = await fs.readFile(QR_FILE, { encoding: "base64" });
-      res.json({ status: "qr", qr: `data:image/png;base64,${image}` });
-    } else {
-      res.json({ status: connectionInfo.status || "waiting" });
-    }
-  } catch (err) {
-    res.status(500).json({ error: "Error al generar QR", details: err.message });
-  }
-});
-
-// ✅ Estado del bot
-app.get("/status", (req, res) => {
-  res.json({
-    connected,
-    info: connectionInfo,
-  });
-});
-
-// ✅ Enviar mensaje
-app.get("/send", async (req, res) => {
-  const { phone, text } = req.query;
-  if (!phone || !text) return res.json({ error: "Faltan parámetros: ?phone=519xxxxxxx&text=Hola" });
-
-  if (!connected || !sock) return res.json({ error: "Bot no conectado aún" });
-
-  try {
-    await sock.sendMessage(`${phone}@s.whatsapp.net`, { text });
-    res.json({ success: true, to: phone, message: text });
-  } catch (err) {
-    res.json({ error: "Error al enviar el mensaje", details: err.message });
-  }
-});
-
-// ✅ Eliminar sesión
-app.get("/logout", async (req, res) => {
-  try {
-    await fs.remove(SESSION_DIR);
-    res.json({ status: "ok", message: "Sesión eliminada. Reinicia para generar nuevo QR." });
-  } catch (err) {
-    res.status(500).json({ error: "Error al eliminar sesión" });
-  }
-});
-
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, "0.0.0.0", () => console.log(`🚀 Servidor corriendo en puerto ${PORT}`));
+app.listen(PORT, "0.0.0.0", () => console.log(`🚀 Servidor activo en puerto ${PORT}`));
