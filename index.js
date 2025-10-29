@@ -1,121 +1,118 @@
 import express from "express";
 import cors from "cors";
-import fetch from "node-fetch"; // asegúrate de tenerlo instalado
-import fs from "fs-extra";
-import path from "path";
+import fetch from "node-fetch";
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ⚙️ Variables del entorno (deben estar configuradas en Fly.io o Railway)
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const GITHUB_REPO = process.env.GITHUB_REPO;
+// 🔑 Variables de entorno (debes configurarlas en Fly.io o Railway)
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN; // tu token personal de GitHub
+const GITHUB_REPO = process.env.GITHUB_REPO;   // ejemplo: "usuario/repositorio"
 
-// 📁 Carpeta local temporal
-const STORAGE_DIR = path.join(process.cwd(), "storage");
-await fs.ensureDir(STORAGE_DIR);
+// 🧠 Función para guardar datos directamente en GitHub
+async function saveToGitHub(tipo, data) {
+  const filePath = `storage/${tipo}.json`;
+  const apiUrl = `https://api.github.com/repos/${GITHUB_REPO}/contents/${filePath}`;
 
-// ✅ Función: guarda o actualiza datos en archivo local y luego los sube a GitHub
-async function saveDynamicData(tipo, data) {
-  const fileName = `${tipo}.json`;
-  const filePath = path.join(STORAGE_DIR, fileName);
-
-  // 1️⃣ Leer datos existentes (si hay)
-  const existing = (await fs.readJson(filePath, { throws: false })) || [];
-  existing.push({ ...data, fecha: new Date().toISOString() });
-
-  // 2️⃣ Guardar localmente (solo por control temporal)
-  await fs.writeJson(filePath, existing, { spaces: 2 });
-
-  // 3️⃣ Subir o actualizar archivo en GitHub
-  await uploadToGitHub(fileName, JSON.stringify(existing, null, 2));
-}
-
-// 🚀 Subir archivo a GitHub mediante la API
-async function uploadToGitHub(fileName, content) {
-  if (!GITHUB_TOKEN || !GITHUB_REPO) {
-    console.error("❌ No hay variables GITHUB_TOKEN o GITHUB_REPO configuradas");
-    return;
-  }
-
-  const apiUrl = `https://api.github.com/repos/${GITHUB_REPO}/contents/${fileName}`;
-
-  // Convertir a Base64 (GitHub requiere este formato)
-  const base64Content = Buffer.from(content).toString("base64");
-
-  // Verificar si el archivo ya existe para obtener su SHA
-  let sha = null;
-  const getResp = await fetch(apiUrl, {
-    headers: { Authorization: `Bearer ${GITHUB_TOKEN}` }
+  // 📦 Obtener el archivo actual en GitHub
+  const res = await fetch(apiUrl, {
+    headers: {
+      Authorization: `token ${GITHUB_TOKEN}`,
+      Accept: "application/vnd.github.v3+json",
+    },
   });
 
-  if (getResp.ok) {
-    const data = await getResp.json();
-    sha = data.sha;
+  let existing = [];
+  let sha = null;
+
+  if (res.ok) {
+    const json = await res.json();
+    sha = json.sha;
+    const content = Buffer.from(json.content, "base64").toString();
+    existing = JSON.parse(content);
   }
 
-  // Crear o actualizar archivo
-  const body = {
-    message: `Actualización automática del archivo ${fileName}`,
-    content: base64Content,
-    sha
-  };
+  // 🔖 Agregar nuevo registro con ID y fecha
+  existing.push({
+    id: data.id || Date.now(),
+    ...data,
+    fecha: new Date().toISOString(),
+  });
 
-  const resp = await fetch(apiUrl, {
+  // 🧬 Codificar y subir a GitHub
+  const newContent = Buffer.from(JSON.stringify(existing, null, 2)).toString("base64");
+  const message = `Guardar datos tipo ${tipo}`;
+
+  const saveRes = await fetch(apiUrl, {
     method: "PUT",
     headers: {
-      Authorization: `Bearer ${GITHUB_TOKEN}`,
-      "Content-Type": "application/json"
+      Authorization: `token ${GITHUB_TOKEN}`,
+      Accept: "application/vnd.github.v3+json",
     },
-    body: JSON.stringify(body)
+    body: JSON.stringify({
+      message,
+      content: newContent,
+      sha, // se incluye solo si ya existía el archivo
+    }),
   });
 
-  if (!resp.ok) {
-    const errorText = await resp.text();
-    console.error("❌ Error al subir archivo a GitHub:", errorText);
-  } else {
-    console.log(`✅ Archivo ${fileName} actualizado correctamente en GitHub`);
-  }
+  if (!saveRes.ok) throw new Error("Error al guardar en GitHub");
 }
 
-// 🧠 Ruta universal para guardar cualquier tipo de dato
-app.post("/guardar/:tipo", async (req, res) => {
-  const tipo = req.params.tipo; // Ejemplo: dni_nombres, ruc, telefonos, etc.
-  const data = req.body;
+// 📌 Ruta universal para GUARDAR usando GET
+// Ejemplo desde navegador:
+// https://base-datos-consulta-pe.fly.dev/guardar/ruc?ruc=10456789012&razon_social=Tienda+Prueba+SAC&direccion=Av+Principal+999&estado=Activo&id=1
+app.get("/guardar/:tipo", async (req, res) => {
+  const tipo = req.params.tipo;
+  const data = req.query; // los datos vienen en la URL como ?clave=valor
 
   if (!data || Object.keys(data).length === 0) {
-    return res.status(400).json({ error: "⚠️ Faltan datos en el cuerpo del request" });
+    return res.status(400).json({ error: "Faltan parámetros en la URL" });
   }
 
   try {
-    await saveDynamicData(tipo, data);
-    res.json({ ok: true, mensaje: `✅ Datos de tipo '${tipo}' guardados correctamente` });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "❌ Error al guardar los datos" });
+    await saveToGitHub(tipo, data);
+    res.json({ ok: true, mensaje: `Datos de tipo '${tipo}' guardados correctamente en GitHub`, data });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error al guardar los datos en GitHub" });
   }
 });
 
-// 🔍 Obtener historial según tipo
+// 📄 Ruta para obtener historial (GET)
 app.get("/historial/:tipo", async (req, res) => {
   const tipo = req.params.tipo;
-  const filePath = path.join(STORAGE_DIR, `${tipo}.json`);
-  if (!(await fs.pathExists(filePath))) return res.json([]);
-  const data = await fs.readJson(filePath);
-  res.json(data);
-});
+  const apiUrl = `https://api.github.com/repos/${GITHUB_REPO}/contents/storage/${tipo}.json`;
 
-// 📂 Ver todos los tipos (archivos creados)
-app.get("/tipos", async (req, res) => {
-  const files = await fs.readdir(STORAGE_DIR);
-  const tipos = files.filter(f => f.endsWith(".json")).map(f => f.replace(".json", ""));
-  res.json(tipos);
+  try {
+    const response = await fetch(apiUrl, {
+      headers: {
+        Authorization: `token ${GITHUB_TOKEN}`,
+        Accept: "application/vnd.github.v3+json",
+      },
+    });
+
+    if (!response.ok) return res.json([]);
+
+    const json = await response.json();
+    const content = Buffer.from(json.content, "base64").toString();
+    res.json(JSON.parse(content));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error al obtener los datos desde GitHub" });
+  }
 });
 
 // 🧩 Ruta raíz
 app.get("/", (req, res) => {
-  res.send("✅ API dinámica con guardado en GitHub — Consulta PE");
+  res.send(`
+    ✅ API dinámica de almacenamiento — Consulta PE (GET compatible)
+    <br><br>Ejemplo para guardar:
+    <br>https://base-datos-consulta-pe.fly.dev/guardar/ruc?ruc=10456789012&razon_social=Tienda+Prueba+SAC&direccion=Av+Principal+999&estado=Activo&id=1
+    <br><br>Ejemplo para ver historial:
+    <br>https://base-datos-consulta-pe.fly.dev/historial/ruc
+  `);
 });
 
 const PORT = process.env.PORT || 8080;
