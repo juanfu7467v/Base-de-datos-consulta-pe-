@@ -2,7 +2,7 @@ app = "whatsapp-bot-0phfqa"
 primary_region = "gru"
 
 [build]
-  dockerfile = "Dockerfile"
+  builder = "heroku/buildpacks:20"
 
 [env]
   PORT = "8080"
