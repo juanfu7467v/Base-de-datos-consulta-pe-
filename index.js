@@ -6,9 +6,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 🔑 Variables de entorno (debes configurarlas en Fly.io o Railway)
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN; // tu token personal de GitHub
-const GITHUB_REPO = process.env.GITHUB_REPO;   // ejemplo: "usuario/repositorio"
+// 🔑 Variables de entorno (debes configurarlas en Fly.io)
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN; // Token personal con permisos de escritura
+const GITHUB_REPO = process.env.GITHUB_REPO;   // Ejemplo: "usuario/repositorio"
 
 // 🧠 Función para guardar datos directamente en GitHub
 async function saveToGitHub(tipo, data) {
@@ -61,8 +61,6 @@ async function saveToGitHub(tipo, data) {
 }
 
 // 📌 Ruta universal para GUARDAR usando GET
-// Ejemplo desde navegador:
-// https://base-datos-consulta-pe.fly.dev/guardar/ruc?ruc=10456789012&razon_social=Tienda+Prueba+SAC&direccion=Av+Principal+999&estado=Activo&id=1
 app.get("/guardar/:tipo", async (req, res) => {
   const tipo = req.params.tipo;
   const data = req.query; // los datos vienen en la URL como ?clave=valor
@@ -116,4 +114,4 @@ app.get("/", (req, res) => {
 });
 
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`🚀 Servidor activo en puerto ${PORT}`));
+app.listen(PORT, "0.0.0.0", () => console.log(`🚀 Servidor activo en puerto ${PORT}`));
