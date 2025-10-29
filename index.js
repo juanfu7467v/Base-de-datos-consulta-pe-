@@ -1,13 +1,15 @@
 import express from "express";
-import { makeWASocket, useMultiFileAuthState, DisconnectReason } from "@whiskeysockets/baileys";
-import fs from "fs-extra";
-import qrcode from "qrcode";
-import path from "path";
 import cors from "cors";
+import fs from "fs-extra";
+import path from "path";
+import qrcode from "qrcode";
+import baileys from "@whiskeysockets/baileys";
+
+const { makeWASocket, useMultiFileAuthState, DisconnectReason } = baileys;
 
 const app = express();
 app.use(express.json());
-app.use(cors()); // ✅ Habilitar CORS
+app.use(cors()); // ✅ Habilita CORS
 
 const SESSION_DIR = "./session";
 const QR_FILE = path.join(SESSION_DIR, "last_qr.png");
@@ -23,11 +25,10 @@ async function startBot() {
   try {
     const { state, saveCreds } = await useMultiFileAuthState(SESSION_DIR);
 
-    // ✅ Crear socket correctamente
     sock = makeWASocket({
       auth: state,
       printQRInTerminal: false,
-      browser: ["ConsultaPE", "Chrome", "10.0"],
+      browser: ["Fly.io WhatsApp Bot", "Chrome", "1.0.0"],
     });
 
     sock.ev.on("connection.update", async (update) => {
@@ -42,15 +43,15 @@ async function startBot() {
 
       if (connection === "open") {
         connected = true;
-        connectionInfo = { status: "connected", message: "✅ Conectado a WhatsApp correctamente" };
-        console.log("✅ Bot vinculado correctamente a WhatsApp");
+        connectionInfo = { status: "connected", message: "✅ Conectado correctamente a WhatsApp" };
+        console.log("✅ Bot vinculado correctamente");
         if (fs.existsSync(QR_FILE)) fs.removeSync(QR_FILE);
       }
 
       if (connection === "close") {
-        const reason = lastDisconnect?.error?.output?.statusCode;
         connected = false;
-        console.log("❌ Conexión cerrada. Intentando reconectar...");
+        const reason = lastDisconnect?.error?.output?.statusCode;
+        console.log("❌ Conexión cerrada. Reintentando...");
         if (reason !== DisconnectReason.loggedOut) setTimeout(startBot, 5000);
       }
     });
@@ -61,12 +62,12 @@ async function startBot() {
       const from = msg.key.remoteJid;
       const text = msg.message.conversation || msg.message.extendedTextMessage?.text || "";
 
-      console.log(`📩 Mensaje de ${from}: ${text}`);
+      console.log(`📩 Mensaje recibido de ${from}: ${text}`);
 
       if (text.toLowerCase() === "hola") {
         await sock.sendMessage(from, { text: "👋 ¡Hola! Soy tu bot conectado a Fly.io 🚀" });
       } else {
-        await sock.sendMessage(from, { text: "🤖 Comando no reconocido. Escribe 'hola' para comenzar." });
+        await sock.sendMessage(from, { text: "🤖 Escribe 'hola' para comenzar." });
       }
     });
 
@@ -79,7 +80,7 @@ async function startBot() {
 
 startBot();
 
-// 🔹 ENDPOINT PRINCIPAL
+// ✅ Página principal
 app.get("/", (req, res) => {
   res.send(`
     <h2>🤖 WhatsApp Bot - Fly.io</h2>
@@ -89,7 +90,7 @@ app.get("/", (req, res) => {
   `);
 });
 
-// 🔹 ENDPOINT QR
+// ✅ Endpoint del QR
 app.get("/qr", async (req, res) => {
   try {
     if (connected) return res.json({ status: "connected" });
@@ -104,7 +105,7 @@ app.get("/qr", async (req, res) => {
   }
 });
 
-// 🔹 ENDPOINT ESTADO GENERAL
+// ✅ Estado del bot
 app.get("/status", (req, res) => {
   res.json({
     connected,
@@ -112,16 +113,12 @@ app.get("/status", (req, res) => {
   });
 });
 
-// 🔹 ENDPOINT ENVIAR MENSAJE
+// ✅ Enviar mensaje
 app.get("/send", async (req, res) => {
   const { phone, text } = req.query;
-  if (!phone || !text) {
-    return res.json({ error: "Faltan parámetros: ?phone=519xxxxxxx&text=Hola" });
-  }
+  if (!phone || !text) return res.json({ error: "Faltan parámetros: ?phone=519xxxxxxx&text=Hola" });
 
-  if (!connected || !sock) {
-    return res.json({ error: "Bot no conectado a WhatsApp aún" });
-  }
+  if (!connected || !sock) return res.json({ error: "Bot no conectado aún" });
 
   try {
     await sock.sendMessage(`${phone}@s.whatsapp.net`, { text });
@@ -131,7 +128,7 @@ app.get("/send", async (req, res) => {
   }
 });
 
-// 🔹 ENDPOINT DESCONECTAR SESIÓN
+// ✅ Eliminar sesión
 app.get("/logout", async (req, res) => {
   try {
     await fs.remove(SESSION_DIR);
