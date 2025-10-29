@@ -1,5 +1,5 @@
 {
-  "name": "consulta-pe-datahub",
+  "name": "whatsapp-bot",
   "version": "1.0.0",
   "main": "index.js",
   "type": "module",
@@ -7,8 +7,10 @@
     "start": "node index.js"
   },
   "dependencies": {
+    "@whiskeysockets/baileys": "^6.6.0",
     "cors": "^2.8.5",
-    "express": "^4.18.2",
-    "node-fetch": "^3.3.2"
+    "express": "^4.19.2",
+    "fs-extra": "^11.2.0",
+    "qrcode": "^1.5.3"
   }
 }
