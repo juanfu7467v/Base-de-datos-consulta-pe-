@@ -1,0 +1,10 @@
+[
+  {
+    "id": 1761822309403,
+    "message": "found data",
+    "result": "{\"quantity\":6,\"coincidences\":[{\"dni\":\"43380819\",\"ruc\":\"20527141762\",\"rz\":\"GOBIERNO REGIONAL DE APURIMAC\",\"fip\":\"01/02/2023\",\"ffp\":\"VIGENTE\"},{\"dni\":\"43380819\",\"ruc\":\"20148182788\",\"rz\":\"MUNICIPALIDAD PROVINCIAL DE ABANCAY\",\"fip\":\"01/10/2022\",\"ffp\":\"30/10/2022\"},{\"dni\":\"43380819\",\"ruc\":\"20527141762\",\"rz\":\"GOBIERNO REGIONAL DE APURIMAC\",\"fip\":\"01/08/2022\",\"ffp\":\"31/12/2022\"},{\"dni\":\"43380819\",\"ruc\":\"20148182788\",\"rz\":\"MUNICIPALIDAD PROVINCIAL DE ABANCAY\",\"fip\":\"01/07/2022\",\"ffp\":\"31/08/2022\"},{\"dni\":\"43380819\",\"ruc\":\"20148182788\",\"rz\":\"MUNICIPALIDAD PROVINCIAL DE ABANCAY\",\"fip\":\"01/04/2022\",\"ffp\":\"30/04/2022\"},{\"dni\":\"43380819\",\"ruc\":\"20527141762\",\"rz\":\"GOBIERNO REGIONAL DE APURIMAC\",\"fip\":\"01/03/2022\",\"ffp\":\"31/05/2022\"}]}",
+    "developed-by": "https://t.me/lederdataoficial",
+    "credits": "1594",
+    "fecha": "2025-10-30T11:05:09.403Z"
+  }
+]
