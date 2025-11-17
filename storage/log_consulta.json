@@ -4822,5 +4822,14 @@
     "userId": "PDRhzt6e6DRoNGzaCHPmu8kpIUN2",
     "costo": "30",
     "fecha": "2025-11-17T00:18:17.812Z"
+  },
+  {
+    "id": 1763338847817,
+    "host": "Unknown/Direct Access",
+    "hora": "2025-11-17T00:20:44.333Z",
+    "endpoint": "/api/ficha",
+    "userId": "PDRhzt6e6DRoNGzaCHPmu8kpIUN2",
+    "costo": "30",
+    "fecha": "2025-11-17T00:20:47.817Z"
   }
 ]
