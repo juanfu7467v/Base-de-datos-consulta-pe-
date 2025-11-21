@@ -8881,5 +8881,14 @@
     "userId": "sv6I2ovbsEgDj2p5kOHoHasO0iu1",
     "costo": "30",
     "fecha": "2025-11-21T17:36:47.905Z"
+  },
+  {
+    "id": 1763747444206,
+    "host": "localhost",
+    "hora": "2025-11-21T17:50:41.014Z",
+    "endpoint": "/api/ficha",
+    "userId": "sv6I2ovbsEgDj2p5kOHoHasO0iu1",
+    "costo": "30",
+    "fecha": "2025-11-21T17:50:44.206Z"
   }
 ]
