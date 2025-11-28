@@ -9538,5 +9538,14 @@
     "userId": "23wJhrKQI9N9wcEFhRlVYLUJcY72",
     "costo": "undefined",
     "fecha": "2025-11-28T21:16:10.898Z"
+  },
+  {
+    "id": 1764365156559,
+    "host": "localhost",
+    "hora": "2025-11-28T21:25:53.063Z",
+    "endpoint": "/api/ficha",
+    "userId": "zayKtjFH2KOYo84HgyLvA0Eb3cG2",
+    "costo": "0",
+    "fecha": "2025-11-28T21:25:56.559Z"
   }
 ]
